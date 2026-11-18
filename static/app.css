@@ -712,6 +712,58 @@ tr.sel.st-paused td, tr.sel.st-queued td { color: var(--sel-ink); }
     linear-gradient(180deg, #050d33 0%, #0a2a8f 38%, #1560ff 72%, #34b8ff 100%);
 }
 [data-skin="hotfries"] .scene .scene-flames { display: block; }
+/* full-height fire behind the panels: three rows of flickering flames plus sparks drifting to the top */
+[data-skin="hotfries"] .scene.scene-under { z-index: 0; }
+[data-skin="hotfries"] .scene .scene-blaze { display: block; top: 0; height: 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 55%, transparent 100%); mask-image: linear-gradient(to top, #000 55%, transparent 100%); }
+.scene-blaze .bz { transform-box: fill-box; transform-origin: 50% 100%; animation: blaze-lick var(--t, 1.6s) ease-in-out var(--d, 0s) infinite alternate; }
+.scene-blaze .bz1 { animation-name: blaze-tall; }
+.scene-blaze .spark { fill: #ffd23f; animation: spark-rise var(--t, 7s) linear var(--d, 0s) infinite; }
+.scene-blaze .spark:nth-child(3n) { fill: #ff8a00; }
+.scene-blaze .spark:nth-child(4n) { fill: #fff6c2; }
+[data-skin="hotfries"].is-active .scene-blaze .bz, [data-skin="hotfries"].is-active .scene-flames .fl { animation-duration: .6s; }
+[data-skin="hotfries"].is-active .scene-blaze .spark { animation-duration: 3.5s; }
+@keyframes blaze-tall {
+  0% { transform: scale(1, 1) skewX(-2deg); }
+  35% { transform: scale(.96, 1.1) skewX(3deg); }
+  70% { transform: scale(1.04, .9) skewX(-4deg); }
+  100% { transform: scale(.98, 1.06) skewX(2deg); }
+}
+@keyframes blaze-lick {
+  0% { transform: scale(1, 1) skewX(2deg); }
+  50% { transform: scale(.93, 1.18) skewX(-4deg); }
+  100% { transform: scale(1.05, .86) skewX(4deg); }
+}
+@keyframes spark-rise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translate(var(--x, 0), -450px); }
+  85% { opacity: .9; }
+  100% { transform: translate(calc(var(--x, 0) * -.5), -920px); opacity: 0; }
+}
+
+/* flame trim licking up from the top edge of the player and the track list */
+[data-skin="hotfries"] .deck, [data-skin="hotfries"] .toolbar { position: relative; }
+[data-skin="hotfries"] .deck::before, [data-skin="hotfries"] .deck::after,
+[data-skin="hotfries"] .toolbar::before, [data-skin="hotfries"] .toolbar::after {
+  content: ""; position: absolute; left: 14px; right: 14px; height: 30px; pointer-events: none; z-index: -1;  /* behind the controls; peeks out of the gaps */
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 30' width='72' height='30'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='0' y2='0'%3E%3Cstop offset='0' stop-color='%23ff1e00'/%3E%3Cstop offset='1' stop-color='%23ff8a00'/%3E%3C/linearGradient%3E%3C/defs%3E%3Csvg x='-4' y='2' width='26' height='28' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3Csvg x='18' y='10' width='22' height='20' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3Csvg x='36' y='0' width='28' height='30' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3Csvg x='60' y='8' width='20' height='22' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3C/svg%3E") 0 100% / 72px 30px repeat-x; transform-origin: 50% 100%;
+  animation: trim-flick 1.3s ease-in-out infinite alternate;
+}
+[data-skin="hotfries"] .deck::after, [data-skin="hotfries"] .toolbar::after {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 30' width='72' height='30'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='0' y2='0'%3E%3Cstop offset='0' stop-color='%23ff8a00'/%3E%3Cstop offset='1' stop-color='%23ffd23f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Csvg x='6' y='14' width='16' height='16' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3Csvg x='28' y='18' width='14' height='12' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3Csvg x='46' y='12' width='18' height='18' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3Csvg x='64' y='17' width='14' height='13' viewBox='0 0 100 160' preserveAspectRatio='none'%3E%3Cpath d='M50 160 C15 160 4 132 14 106 C21 88 18 70 30 55 C32 74 41 80 45 70 C48 50 40 30 55 0 C60 30 80 45 82 75 C84 95 75 100 78 112 C86 105 90 95 88 84 C100 105 98 140 80 152 C72 158 61 160 50 160 Z' fill='url%28%23g%29'/%3E%3C/svg%3E%3C/svg%3E") 36px 100% / 72px 30px repeat-x; animation-duration: .8s; animation-delay: -.4s;
+}
+[data-skin="hotfries"] .deck::before, [data-skin="hotfries"] .deck::after { bottom: 100%; margin-bottom: 1px; }
+[data-skin="hotfries"] .toolbar::before, [data-skin="hotfries"] .toolbar::after { bottom: 0; }
+[data-skin="hotfries"].is-active .deck::before, [data-skin="hotfries"].is-active .deck::after,
+[data-skin="hotfries"].is-active .toolbar::before, [data-skin="hotfries"].is-active .toolbar::after { animation-duration: .45s; }
+@keyframes trim-flick {
+  0% { transform: scaleY(.8); background-position-x: 0; }
+  50% { transform: scaleY(1.15); }
+  100% { transform: scaleY(.9); background-position-x: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { [data-skin="hotfries"] .deck::before, [data-skin="hotfries"] .deck::after,
+  [data-skin="hotfries"] .toolbar::before, [data-skin="hotfries"] .toolbar::after, .scene-blaze * { animation: none !important; } }
 [data-skin="hotfries"] .scene { z-index: 2; }  /* flames lick in front of the panel bottoms */
 [data-skin="hotfries"] .app { z-index: auto; }  /* let the status bar sit above the flames */
 [data-skin="hotfries"] .titlebar {

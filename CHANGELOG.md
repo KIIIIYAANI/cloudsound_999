@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.1
+
+- HotFries is on fire throughout: tall flickering flames rise up the whole window behind the panels, sparks drift to the top, and a flame trim licks along the top of the player and track list. It all burns faster while downloads run (and stays still if your system has Reduce Motion on).
+
 ## 3.1.0 — Windows
 
 - **cloudsound_999 now runs on Windows 10 and 11** (64-bit). Download `cloudsound_999-3.1.0-windows.zip`, extract it and run `cloudsound_999.exe`. yt-dlp and FFmpeg are included, and yt-dlp updates itself weekly.
