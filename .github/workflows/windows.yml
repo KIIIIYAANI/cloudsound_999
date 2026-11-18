@@ -5,6 +5,10 @@ name: Windows build
 # get the zip as a build artifact without releasing.
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Attach the zip to this existing release (e.g. v3.1.0); leave empty to only build"
+        required: false
   release:
     types: [published]
 
@@ -34,14 +38,15 @@ jobs:
           mkdir -p tools-dl tools
           curl -sSL -o tools/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
           curl -sSL -o tools/LICENSE-yt-dlp.txt https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/LICENSE
-          # newest stable FFmpeg release build, LGPL variant (small licence footprint, has LAME/Opus)
+          # newest stable FFmpeg release build, LGPL "shared" variant: ffmpeg and ffprobe share their DLLs
+          # (half the size of two static exes); LGPL keeps the licence simple and still has LAME/Opus
           asset=$(gh release view latest -R BtbN/FFmpeg-Builds --json assets --jq '.assets[].name' \
-                  | grep -E '^ffmpeg-n[0-9.]+-latest-win64-lgpl-[0-9.]+\.zip$' | sort -V | tail -1)
+                  | grep -E '^ffmpeg-n[0-9.]+-latest-win64-lgpl-shared-[0-9.]+\.zip$' | sort -V | tail -1)
           echo "FFmpeg build: $asset"
           gh release download latest -R BtbN/FFmpeg-Builds -p "$asset" -D tools-dl
           unzip -q "tools-dl/$asset" -d tools-dl
           src=$(dirname "$(find tools-dl -name ffmpeg.exe | head -1)")
-          cp "$src/ffmpeg.exe" "$src/ffprobe.exe" tools/
+          cp "$src/ffmpeg.exe" "$src/ffprobe.exe" "$src"/*.dll tools/
           cp "$(find tools-dl -maxdepth 2 -name LICENSE.txt | head -1)" tools/LICENSE-ffmpeg.txt
           printf 'FFmpeg build: %s\nFrom: https://github.com/BtbN/FFmpeg-Builds/releases (source: https://ffmpeg.org/download.html)\n' "$asset" > tools/FFMPEG-SOURCE.txt
           tools/ffmpeg.exe -hide_banner -encoders | grep -E 'libmp3lame|libopus|flac'
@@ -88,5 +93,5 @@ jobs:
             dist/*.sha256
 
       - name: Attach to release
-        if: github.event_name == 'release'
-        run: gh release upload "${{ github.event.release.tag_name }}" "$ZIP" --clobber
+        if: github.event_name == 'release' || inputs.release_tag != ''
+        run: gh release upload "${{ github.event.release.tag_name || inputs.release_tag }}" "$ZIP" --clobber
