@@ -189,10 +189,11 @@ def mp4_tmpo(path: str):
 
 
 def read_tags(path: str, ffmpeg: str) -> dict:
-    probe = os.path.join(os.path.dirname(ffmpeg), "ffprobe") if os.path.isabs(ffmpeg) else "ffprobe"
+    exe = ".exe" if os.name == "nt" else ""
+    probe = os.path.join(os.path.dirname(ffmpeg), "ffprobe" + exe) if os.path.isabs(ffmpeg) else "ffprobe"
     try:
         r = subprocess.run([probe, "-v", "error", "-show_entries", "format_tags:stream_tags", "-of", "json", path],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         data = json.loads(r.stdout or "{}")
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return {}
@@ -263,9 +264,12 @@ def basic_analysis(x: np.ndarray):
             "key_conf": "ok" if strength > 0.75 else "low", "engine": "basic"}
 
 
-def main():
-    path = sys.argv[1]
-    ffmpeg = sys.argv[2] if len(sys.argv) > 2 else "ffmpeg"
+def main(argv=None):
+    """analyze.py <audio file> [ffmpeg] [out.json]  (prints the JSON result, or writes it to out.json)"""
+    argv = sys.argv[1:] if argv is None else argv
+    path = argv[0]
+    ffmpeg = argv[1] if len(argv) > 1 else "ffmpeg"
+    out = argv[2] if len(argv) > 2 else None
     tags = read_tags(path, ffmpeg)
     x = decode(path, ffmpeg)
     try:
@@ -281,7 +285,11 @@ def main():
         res.update(tag_key=f"{k} {sc}", tag_camelot=cam)
     if "artist" in tags:
         res["artist"] = tags["artist"]
-    print(json.dumps(res))
+    if out:
+        with open(out, "w", encoding="utf-8") as f:
+            json.dump(res, f)
+    else:
+        print(json.dumps(res))
 
 
 if __name__ == "__main__":

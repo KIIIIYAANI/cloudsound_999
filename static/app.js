@@ -595,15 +595,20 @@ function render() {
 
 function renderHealth() {
   const t = health.tools;
+  const reveal = document.querySelector('#ctx [data-cmd="reveal"]');
+  if (reveal && health.platform === "win32") reveal.textContent = "Show in Explorer";
+  else if (reveal && health.platform !== "darwin") reveal.textContent = "Show in folder";
   $("#sbTools").textContent = `yt-dlp ${t["yt-dlp"].found ? t["yt-dlp"].version : "missing"} · ffmpeg ${t.ffmpeg.found ? "ok" : "missing"}`;
   const missing = Object.entries(t).filter(([, v]) => !v.found).map(([k]) => k);
   const b = $("#depsBanner");
   b.hidden = missing.length === 0;
   if (missing.length) {
-    const brew = `brew install ${missing.join(" ")}`;
+    const win = health.platform === "win32";
+    const how = win
+      ? `The Windows app ships with both in its <code>tools</code> folder, so try extracting the zip again. Or install them with <code>winget install yt-dlp.yt-dlp Gyan.FFmpeg</code>, then restart cloudsound_999.`
+      : `Install with Homebrew: <code>brew install ${missing.join(" ")}</code> (or <code>pipx install yt-dlp</code>), then reload this page.`;
     b.innerHTML = `<strong>Missing: ${missing.join(", ")}.</strong> ` +
-      (missing.includes("yt-dlp") ? "Downloads can't start without yt-dlp. " : "Without ffmpeg, audio can't be converted and cover art can't be embedded. ") +
-      `Install with Homebrew: <code>${brew}</code> (or <code>pipx install yt-dlp</code>), then reload this page.`;
+      (missing.includes("yt-dlp") ? "Downloads can't start without yt-dlp. " : "Without ffmpeg, audio can't be converted and cover art can't be embedded. ") + how;
   }
 }
 
@@ -843,6 +848,10 @@ function wire() {
     if (document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
     if ((e.key === "Delete" || e.key === "Backspace") && selected.size) { e.preventDefault(); cmd("remove"); }
     if (e.key === " " && !e.metaKey && !e.ctrlKey && !(document.activeElement && document.activeElement.closest("button, dialog"))) { e.preventDefault(); Player.toggle(); }
+    // Ctrl+1–7 picks a skin (the Mac app does ⌘1–⌘7 itself)
+    if (!NATIVE && e.ctrlKey && !e.metaKey && /^[1-9]$/.test(e.key) && SKINS[+e.key - 1]) {
+      e.preventDefault(); applySkin(SKINS[+e.key - 1][0]); return;
+    }
     if ((e.metaKey || e.ctrlKey) && e.key === "f") { e.preventDefault(); $("#search").focus(); $("#search").select(); }
     if ((e.metaKey || e.ctrlKey) && e.key === "a") { e.preventDefault(); visibleJobs().forEach((j) => selected.add(j.id)); render(); }
   });

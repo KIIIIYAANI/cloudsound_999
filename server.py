@@ -29,7 +29,13 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-APP_DIR = Path(__file__).resolve().parent
+IS_WIN = os.name == "nt"
+FROZEN = bool(getattr(sys, "frozen", False))  # the packaged Windows app (PyInstaller)
+# Windows: keep helper processes (yt-dlp, ffmpeg) from flashing console windows.
+NO_WINDOW = {"creationflags": 0x08000000} if IS_WIN else {}  # CREATE_NO_WINDOW
+TEXT_IO = {"text": True, "encoding": "utf-8", "errors": "replace"}
+
+APP_DIR = Path(getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent)
 # The Mac app sets CS999_DATA_DIR (~/Library/Application Support/cloudsound_999) so the
 # code can live read-only inside the .app bundle; ./run.sh from the folder keeps .state/ here.
 DATA_DIR = Path(os.environ.get("CS999_DATA_DIR") or APP_DIR)
@@ -39,6 +45,8 @@ STATE_DIR.mkdir(parents=True, exist_ok=True)
 SETTINGS_FILE = STATE_DIR / "settings.json"
 JOBS_FILE = STATE_DIR / "jobs.json"
 
+# CS999_TEST_HOSTS lets the automated build test download from a local test server.
+TEST_HOSTS = {h.strip() for h in os.environ.get("CS999_TEST_HOSTS", "").split(",") if h.strip()}
 AUDIO_FORMATS = ["original", "mp3", "m4a", "opus", "flac", "wav"]
 DEFAULT_SETTINGS = {
     "output_dir": str(Path.home() / "Music" / "cloudsound_999"),
@@ -79,6 +87,12 @@ FINAL = {"done", "error"}
 
 # ---------------------------------------------------------------- utilities
 def which(name: str) -> Optional[str]:
+    # tools shipped next to the Windows app come first
+    bundled = os.environ.get("CS999_TOOLS_DIR")
+    if bundled:
+        p = Path(bundled) / (name + (".exe" if IS_WIN else ""))
+        if p.exists():
+            return str(p)
     found = shutil.which(name)
     if found:
         return found
@@ -96,7 +110,8 @@ def tool_status() -> dict:
         version = None
         if path:
             try:
-                r = subprocess.run([path, *args], capture_output=True, text=True, timeout=10)
+                r = subprocess.run([path, *args], capture_output=True, timeout=10,
+                                   stdin=subprocess.DEVNULL, **TEXT_IO, **NO_WINDOW)
                 version = (r.stdout.strip().splitlines() or [""])[0]
             except Exception:
                 version = "unknown"
@@ -124,8 +139,41 @@ def num(s: str) -> Optional[float]:
         return None
 
 
+def proc_tree(pid: int):
+    """Windows: a process and all its children (yt-dlp plus its ffmpeg), via psutil."""
+    import psutil
+    p = psutil.Process(pid)
+    return [p, *p.children(recursive=True)]
+
+
+def signal_tree(pid: int, action: str) -> None:
+    """stop / cont / term / kill a download's whole process tree (yt-dlp and any ffmpeg child)."""
+    if not IS_WIN:
+        sig = {"stop": signal.SIGSTOP, "cont": signal.SIGCONT, "term": signal.SIGTERM, "kill": signal.SIGKILL}[action]
+        os.killpg(pid, sig)
+        return
+    import psutil
+    try:
+        procs = proc_tree(pid)
+    except psutil.Error:
+        return
+    for p in procs:
+        try:
+            {"stop": p.suspend, "cont": p.resume, "term": p.kill, "kill": p.kill}[action]()
+        except psutil.Error:
+            pass
+
+
 def reap_orphan(pid: int, url: str) -> None:
     """Kill a yt-dlp process group left behind by a previous (hard-killed) run."""
+    if IS_WIN:
+        try:
+            import psutil
+            if any("yt-dlp" in a for a in psutil.Process(pid).cmdline()) and url in " ".join(psutil.Process(pid).cmdline()):
+                signal_tree(pid, "kill")
+        except Exception:  # noqa: BLE001
+            pass
+        return
     try:
         r = subprocess.run(["ps", "-o", "command=", "-p", str(pid)], capture_output=True, text=True)
         if "yt-dlp" in r.stdout and url in r.stdout:
@@ -195,6 +243,8 @@ class Manager:
         self.order: list[str] = []
         self.version = 0
         self.notice: Optional[str] = None
+        self.clients = 0                 # open UI connections (/api/events)
+        self.last_client = time.time()   # when one last connected or disconnected
         for d in load_json(JOBS_FILE, []):
             j = Job.from_dict(d)
             if j.pid:
@@ -271,7 +321,8 @@ class Manager:
             if not re.match(r"^https?://", url):
                 url = "https://" + url
             host = (urlparse(url).hostname or "").lower()
-            if not (host == "soundcloud.com" or host.endswith(".soundcloud.com") or host == "snd.sc"):
+            if not (host == "soundcloud.com" or host.endswith(".soundcloud.com") or host == "snd.sc"
+                    or host in TEST_HOSTS):
                 self.notice = f"Skipped non-SoundCloud URL: {raw.strip()}"
                 self.touch()
                 continue
@@ -292,8 +343,8 @@ class Manager:
         err = None
         try:
             r = subprocess.run(
-                [ytdlp, "--flat-playlist", "-J", "--no-warnings", url],
-                capture_output=True, text=True, timeout=120,
+                [ytdlp, "--flat-playlist", "-J", "--no-warnings", *(["--encoding", "utf-8"] if IS_WIN else []), url],
+                capture_output=True, timeout=120, stdin=subprocess.DEVNULL, **TEXT_IO, **NO_WINDOW,
             )
             if r.returncode != 0:
                 err = (r.stderr.strip().splitlines() or ["yt-dlp failed"])[-1]
@@ -357,6 +408,8 @@ class Manager:
             "-o", os.path.join(out_dir, "%(uploader)s - %(title)s [%(id)s].%(ext)s"),
             "--exec", "after_move:echo CSDONE {}",
         ]
+        if IS_WIN:
+            cmd += ["--encoding", "utf-8"]
         if s.get("rate_limit_kb"):
             cmd += ["--limit-rate", f"{int(s['rate_limit_kb'])}K"]
         ff = which("ffmpeg")
@@ -375,10 +428,11 @@ class Manager:
             self.touch(save=True)
             return
         j.status, j.error, j.stopping = "downloading", None, False
-        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+        env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
+        group = {"creationflags": 0x08000000 | 0x00000200} if IS_WIN else {"start_new_session": True}  # NO_WINDOW | NEW_PROCESS_GROUP
         j.proc = subprocess.Popen(
-            self._command(j), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1, env=env, start_new_session=True,
+            self._command(j), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            bufsize=1, env=env, **TEXT_IO, **group,
         )
         j.pid = j.proc.pid
         threading.Thread(target=self._reader, args=(j, j.proc), daemon=True).start()
@@ -411,7 +465,8 @@ class Manager:
                             j.speed, j.eta = None, None
                     self.touch()
                 elif line.startswith(DONE_PREFIX):
-                    j.final_path = line[len(DONE_PREFIX):].strip()
+                    # Windows' echo keeps the quotes yt-dlp puts around paths with spaces
+                    j.final_path = line[len(DONE_PREFIX):].strip().strip('"')
                     self._remember(j, j.final_path)
                 else:
                     m = re.match(r"^\[(\w+)\] Destination: (.+)$", line)
@@ -440,6 +495,11 @@ class Manager:
                 pass  # paused/removed by the user; status already set
             elif code == 0:
                 j.status, j.progress = "done", 100.0
+                if not (j.final_path and os.path.exists(j.final_path)):
+                    # the echoed path didn't survive the console code page: use the last file yt-dlp wrote
+                    audio = [f for f in j.files if os.path.splitext(f)[1].lower() in AUDIO_TYPES and os.path.isfile(f)]
+                    if audio:
+                        j.final_path = audio[-1]
                 if j.final_path and os.path.exists(j.final_path):
                     j.size = os.path.getsize(j.final_path)
                     j.artist = artist_from_path(j.final_path)
@@ -457,10 +517,10 @@ class Manager:
             j.files.append(path)
 
     # -- transfer controls
-    def _signal(self, j: Job, sig):
+    def _signal(self, j: Job, action: str):
         if j.proc and j.proc.poll() is None:
             try:
-                os.killpg(j.proc.pid, sig)
+                signal_tree(j.proc.pid, action)
             except ProcessLookupError:
                 pass
 
@@ -471,7 +531,7 @@ class Manager:
                 if not j:
                     continue
                 if j.status in ACTIVE and j.proc:
-                    self._signal(j, signal.SIGSTOP)  # suspend in place; resume is instant
+                    self._signal(j, "stop")  # suspend in place; resume is instant
                     j.status, j.speed, j.eta = "paused", None, None
                 elif j.status == "queued":
                     j.status = "paused"
@@ -484,7 +544,7 @@ class Manager:
                 if not j or j.status not in ("paused", "error"):
                     continue
                 if j.proc and j.proc.poll() is None:
-                    self._signal(j, signal.SIGCONT)
+                    self._signal(j, "cont")
                     j.status = "downloading"
                 else:
                     # no live process (app restarted, or it errored): requeue;
@@ -501,8 +561,8 @@ class Manager:
                 self.order.remove(i)
                 if j.proc and j.proc.poll() is None:
                     j.stopping = True
-                    self._signal(j, signal.SIGCONT)
-                    self._signal(j, signal.SIGKILL)
+                    self._signal(j, "cont")
+                    self._signal(j, "kill")
                 if delete_files:
                     threading.Thread(target=self._delete_files, args=(j,), daemon=True).start()
             self.touch(save=True)
@@ -534,8 +594,8 @@ class Manager:
             for j in self.jobs.values():
                 if j.proc and j.proc.poll() is None:
                     j.stopping = True
-                    self._signal(j, signal.SIGCONT)
-                    self._signal(j, signal.SIGTERM)
+                    self._signal(j, "cont")
+                    self._signal(j, "term")
                     if j.status in ACTIVE or j.status == "queued":
                         j.status = "paused"
             self.touch(save=True)
@@ -574,13 +634,18 @@ class Analyzer:
         threading.Thread(target=self._run, daemon=True).start()
 
     def _has(self, mod: str) -> bool:
-        r = subprocess.run([sys.executable, "-c", f"import {mod}"], capture_output=True, stdin=subprocess.DEVNULL)
+        if FROZEN:  # packaged app: only what was bundled
+            import importlib.util
+            return importlib.util.find_spec(mod) is not None
+        r = subprocess.run([sys.executable, "-c", f"import {mod}"], capture_output=True, stdin=subprocess.DEVNULL, **NO_WINDOW)
         return r.returncode == 0
 
     def _pip(self, *pkgs: str) -> bool:
+        if FROZEN:
+            return False
         try:
             r = subprocess.run([sys.executable, "-m", "pip", "install", "-q", "--only-binary=:all:", *pkgs],
-                               capture_output=True, timeout=900, stdin=subprocess.DEVNULL)
+                               capture_output=True, timeout=900, stdin=subprocess.DEVNULL, **NO_WINDOW)
             return r.returncode == 0
         except (subprocess.TimeoutExpired, OSError):
             return False
@@ -594,7 +659,7 @@ class Analyzer:
             return "essentia"
         mark = load_json(self.MARK, {})
         recently_tried = time.time() - mark.get("tried", 0) < 7 * 86400
-        if not recently_tried:
+        if not recently_tried and not IS_WIN:  # Essentia publishes no Windows builds
             self._set("installing")
             ok = self._pip("essentia")
             atomic_write(self.MARK, {"tried": time.time(), "essentia": ok})
@@ -603,6 +668,24 @@ class Analyzer:
         if self._has("numpy") or (not recently_tried and self._pip("numpy") and self._has("numpy")):
             return "basic"
         return "unavailable"
+
+    def _analyse(self, path: str, ff: str) -> Optional[dict]:
+        """Run analyze.py in a low-priority child process; returns its JSON result."""
+        if FROZEN:  # the packaged app runs itself in analysis mode and writes the result to a file
+            out = STATE_DIR / "analysis.json"
+            out.unlink(missing_ok=True)
+            cmd = [sys.executable, "--analyze", path, ff, str(out)]
+        else:
+            cmd = [sys.executable, str(APP_DIR / "analyze.py"), path, ff]
+        if IS_WIN:
+            prio = {"creationflags": 0x08000000 | 0x00004000}  # NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS
+        else:
+            cmd, prio = ["nice", "-n", "10", *cmd], {}
+        r = subprocess.run(cmd, capture_output=True, timeout=600, stdin=subprocess.DEVNULL, **TEXT_IO, **prio)
+        if FROZEN:
+            return load_json(out, None) if r.returncode == 0 else None
+        line = (r.stdout.strip().splitlines() or [""])[-1]
+        return json.loads(line) if r.returncode == 0 and line.startswith("{") else None
 
     def _next(self) -> Optional[Job]:
         with self.m.lock:
@@ -631,10 +714,7 @@ class Analyzer:
                 continue
             res = None
             try:
-                r = subprocess.run(["nice", "-n", "10", sys.executable, str(APP_DIR / "analyze.py"), j.final_path, ff],
-                                   capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL)
-                line = (r.stdout.strip().splitlines() or [""])[-1]
-                res = json.loads(line) if r.returncode == 0 and line.startswith("{") else None
+                res = self._analyse(j.final_path, ff)
             except (subprocess.TimeoutExpired, OSError, ValueError):
                 res = None
             with self.m.lock:
@@ -769,9 +849,11 @@ def settings(patch: dict):
 
 @app.post("/api/choose-folder")
 def choose_folder():
-    """Native folder picker (macOS only, via AppleScript)."""
+    """Native folder picker: AppleScript on macOS, the Windows folder dialog via PowerShell."""
+    if IS_WIN:
+        return _choose_folder_windows()
     if sys.platform != "darwin":
-        raise HTTPException(501, "Native picker is macOS-only; type a path instead")
+        raise HTTPException(501, "No native folder picker here; type a path instead")
     start = mgr.settings["output_dir"].replace('"', '\\"')
     script = (
         f'set d to POSIX file "{start}"\n'
@@ -789,6 +871,25 @@ def choose_folder():
     return {"cancelled": False, "output_dir": mgr.settings["output_dir"]}
 
 
+def _choose_folder_windows():
+    ps = (
+        "Add-Type -AssemblyName System.Windows.Forms;"
+        "$o = New-Object System.Windows.Forms.Form -Property @{TopMost=$true; ShowInTaskbar=$false};"
+        "$d = New-Object System.Windows.Forms.FolderBrowserDialog;"
+        "$d.Description = 'cloudsound_999: save audio to';"
+        "$d.SelectedPath = $env:CS999_START;"
+        "if ($d.ShowDialog($o) -eq 'OK') { [Console]::OutputEncoding = [Text.Encoding]::UTF8; $d.SelectedPath }"
+    )
+    env = {**os.environ, "CS999_START": mgr.settings["output_dir"]}
+    r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", ps], capture_output=True,
+                       stdin=subprocess.DEVNULL, env=env, **TEXT_IO, **NO_WINDOW)
+    path = r.stdout.strip()
+    if r.returncode != 0 or not path:
+        return {"cancelled": True}
+    mgr.update_settings({"output_dir": path})
+    return {"cancelled": False, "output_dir": mgr.settings["output_dir"]}
+
+
 @app.post("/api/reveal")
 def reveal(body: IdsBody):
     j = mgr.jobs.get(body.ids[0]) if body.ids else None
@@ -798,6 +899,11 @@ def reveal(body: IdsBody):
             subprocess.run(["open", "-R", target])
         else:
             subprocess.run(["open", mgr.settings["output_dir"]])
+    elif IS_WIN:
+        if target:
+            subprocess.Popen(f'explorer /select,"{os.path.normpath(target)}"')
+        elif os.path.isdir(mgr.settings["output_dir"]):
+            os.startfile(mgr.settings["output_dir"])  # type: ignore[attr-defined]
     return {"ok": True}
 
 
@@ -835,7 +941,7 @@ def art(job_id: str):
             try:
                 r = subprocess.run([ff, "-v", "error", "-y", "-i", j.final_path, "-an", "-map", "0:v:0",
                                     "-frames:v", "1", "-vf", "scale=300:-2", str(out)],
-                                   capture_output=True, timeout=20, stdin=subprocess.DEVNULL)
+                                   capture_output=True, timeout=20, stdin=subprocess.DEVNULL, **NO_WINDOW)
                 ok = r.returncode == 0 and out.exists() and out.stat().st_size > 0
             except (subprocess.TimeoutExpired, OSError):
                 ok = False
@@ -850,6 +956,16 @@ def art(job_id: str):
 @app.get("/api/events")
 async def events():
     async def gen():
+        mgr.clients += 1
+        mgr.last_client = time.time()
+        try:
+            async for chunk in _events():
+                yield chunk
+        finally:
+            mgr.clients -= 1
+            mgr.last_client = time.time()
+
+    async def _events():
         seen = -1
         idle = 0
         while True:

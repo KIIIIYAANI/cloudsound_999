@@ -1,0 +1,92 @@
+name: Windows build
+
+# Builds cloudsound_999-<version>-windows.zip (app + yt-dlp + FFmpeg), tests it end to end on Windows,
+# and attaches it to the GitHub release when one is published. Run it by hand from the Actions tab to
+# get the zip as a build artifact without releasing.
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python packages
+        run: python -m pip install -q -r requirements.txt numpy pyinstaller
+
+      - name: Download yt-dlp and FFmpeg
+        run: |
+          mkdir -p tools-dl tools
+          curl -sSL -o tools/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+          curl -sSL -o tools/LICENSE-yt-dlp.txt https://raw.githubusercontent.com/yt-dlp/yt-dlp/master/LICENSE
+          # newest stable FFmpeg release build, LGPL variant (small licence footprint, has LAME/Opus)
+          asset=$(gh release view latest -R BtbN/FFmpeg-Builds --json assets --jq '.assets[].name' \
+                  | grep -E '^ffmpeg-n[0-9.]+-latest-win64-lgpl-[0-9.]+\.zip$' | sort -V | tail -1)
+          echo "FFmpeg build: $asset"
+          gh release download latest -R BtbN/FFmpeg-Builds -p "$asset" -D tools-dl
+          unzip -q "tools-dl/$asset" -d tools-dl
+          src=$(dirname "$(find tools-dl -name ffmpeg.exe | head -1)")
+          cp "$src/ffmpeg.exe" "$src/ffprobe.exe" tools/
+          cp "$(find tools-dl -maxdepth 2 -name LICENSE.txt | head -1)" tools/LICENSE-ffmpeg.txt
+          printf 'FFmpeg build: %s\nFrom: https://github.com/BtbN/FFmpeg-Builds/releases (source: https://ffmpeg.org/download.html)\n' "$asset" > tools/FFMPEG-SOURCE.txt
+          tools/ffmpeg.exe -hide_banner -encoders | grep -E 'libmp3lame|libopus|flac'
+          tools/yt-dlp.exe --version
+
+      - name: Build app (PyInstaller)
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name cloudsound_999 --icon win/icon.ico \
+            --paths . --add-data "static;static" --add-data "VERSION;." \
+            --hidden-import server --hidden-import analyze --collect-submodules uvicorn \
+            win/launcher.py
+          cp -r tools dist/cloudsound_999/tools
+          cp win/README-windows.txt "dist/cloudsound_999/READ ME FIRST.txt"
+          cp LICENSE dist/cloudsound_999/LICENSE.txt
+          ls dist/cloudsound_999
+
+      - name: End-to-end test (download, pause/resume, BPM analysis, playback)
+        env:
+          CS999_NO_WINDOW: "1"
+          CS999_TEST_HOSTS: 127.0.0.1
+        run: |
+          ./dist/cloudsound_999/cloudsound_999.exe &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:9990/api/health >/dev/null && break; sleep 1; done
+          python tests/e2e.py http://127.0.0.1:9990 dist/cloudsound_999/tools/ffmpeg.exe
+
+      - name: Server log
+        if: always()
+        run: cat "$LOCALAPPDATA/cloudsound_999/server.log" 2>/dev/null || true
+
+      - name: Zip
+        run: |
+          taskkill //F //IM cloudsound_999.exe //T || true
+          V=$(tr -d '[:space:]' < VERSION)
+          rm -rf "$LOCALAPPDATA/cloudsound_999"
+          cd dist && 7z a -tzip -mx=9 "cloudsound_999-$V-windows.zip" cloudsound_999 >/dev/null
+          sha256sum "cloudsound_999-$V-windows.zip" | tee "cloudsound_999-$V-windows.zip.sha256"
+          echo "ZIP=dist/cloudsound_999-$V-windows.zip" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cloudsound_999-windows
+          path: |
+            dist/*.zip
+            dist/*.sha256
+
+      - name: Attach to release
+        if: github.event_name == 'release'
+        run: gh release upload "${{ github.event.release.tag_name }}" "$ZIP" --clobber
