@@ -34,7 +34,7 @@ cp "$WORK/cloudsound_999" "$APP/Contents/MacOS/cloudsound_999"
 CODE="$APP/Contents/Resources/cloudsound_999"
 mkdir -p "$CODE"
 rsync -a --exclude '.venv' --exclude '.state' --exclude 'server.log' --exclude '__pycache__' \
-  --exclude 'macapp' --exclude 'dist' --exclude '.gitignore' --exclude '.DS_Store' "$SRC/" "$CODE/"
+  --exclude 'macapp' --exclude 'dist' --exclude '.gitignore' --exclude '.DS_Store' --exclude '.git' --exclude 'docs' --exclude 'store' "$SRC/" "$CODE/"
 chmod +x "$CODE/run.sh"
 
 # 3. icon
