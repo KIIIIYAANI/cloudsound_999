@@ -8,7 +8,7 @@ Copy-paste text and settings for the download pages. Images are in `dist/store/`
 | `hero-1920x1080.jpg` | Whop product banner / itch.io banner |
 | `screenshot-*.jpg` (1920 wide) | gallery: one per skin, plus two Organize views |
 
-Replace `GITHUB_URL` below with the repository link once it is published.
+Repository: https://github.com/KIIIIYAANI/cloudsound_999 · Downloads: https://github.com/KIIIIYAANI/cloudsound_999/releases/latest
 
 ---
 
@@ -50,7 +50,7 @@ Matrix · LymeWire · Napsterr · HotFries · JoeKool · POSTAL · Noir. Switch 
 **Private by design**
 No account, no tracking, no cloud. The app's server only listens on your own machine (`127.0.0.1`).
 
-**Free and open source** (MIT). Source code: GITHUB_URL
+**Free and open source** (MIT). Source code: https://github.com/KIIIIYAANI/cloudsound_999
 
 ## Requirements
 
