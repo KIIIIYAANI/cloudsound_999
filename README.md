@@ -14,7 +14,16 @@ Everything runs on your machine. The server listens only on `127.0.0.1`.
 2. Open `cloudsound_999-<version>.dmg` and drag **cloudsound_999** to **Applications**.
 3. On first open, macOS blocks the app because it isn't notarized. Go to System Settings → Privacy & Security and click **Open Anyway**.
 
-The first launch takes about a minute while the app sets up its Python packages. BPM/key analysis adds Essentia in the background. On other systems, run from source with `./run.sh` (see below).
+The first launch takes about a minute while the app sets up its Python packages. BPM/key analysis adds Essentia in the background.
+
+## Install (Windows 10/11)
+
+1. Download `cloudsound_999-<version>-windows.zip` from [Releases](https://github.com/KIIIIYAANI/cloudsound_999/releases/latest), right-click it, and choose **Extract All**.
+2. Open the folder and double-click `cloudsound_999.exe`. If Windows shows "Windows protected your PC" (the app isn't code-signed), click **More info → Run anyway**.
+
+yt-dlp and FFmpeg are included in its `tools` folder. The app opens in its own window and quits when you close it. App data and the log are in `%LOCALAPPDATA%\cloudsound_999`. To run from source instead, use `run.bat`.
+
+On Linux, run from source with `./run.sh` (see below).
 
 > **Use responsibly.** Only download audio you have the rights to: tracks the artist has made downloadable, Creative Commons–licensed work, or your own uploads. Respect artists and SoundCloud's terms.
 

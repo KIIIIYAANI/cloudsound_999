@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.0 — Windows
+
+- **cloudsound_999 now runs on Windows 10 and 11** (64-bit). Download `cloudsound_999-3.1.0-windows.zip`, extract it and run `cloudsound_999.exe`. yt-dlp and FFmpeg are included, and yt-dlp updates itself weekly.
+- The Windows app opens in its own window and quits when you close it. Pause and resume, Show in Explorer, the folder picker and Ctrl+1–7 skin switching all work.
+- On Windows, BPM and key come from tags first, then from the built-in analyser (Essentia, used on the Mac, has no Windows build).
+- `run.bat` runs from source on Windows.
+- An end-to-end test (download, pause and resume, analysis, playback, delete) now runs on every Windows build.
+
 ## 3.0.1
 
 - Skins renamed: **Matrix** (was 2001), **LymeWire**, **Napsterr**, **JoeKool**, **POSTAL**. A skin you already picked carries over automatically.

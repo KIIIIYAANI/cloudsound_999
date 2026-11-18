@@ -18,7 +18,7 @@ cloudsound_999
 
 ## Tagline (short, ≤ 100 characters)
 
-A local SoundCloud downloader and DJ-ready player for Mac, with seven retro skins.
+A local SoundCloud downloader and DJ-ready player for Mac and Windows, with seven retro skins.
 
 ## Short description
 
@@ -26,7 +26,7 @@ Paste SoundCloud links, watch them download in a torrent-style transfer list, th
 
 ## Long description
 
-**cloudsound_999** is a desktop app for macOS that downloads SoundCloud tracks, playlists and profiles to a folder you choose, then helps you play and organize them.
+**cloudsound_999** is a desktop app for Mac and Windows that downloads SoundCloud tracks, playlists and profiles to a folder you choose, then helps you play and organize them.
 
 **Download**
 - Paste links, or drop them on the Dock icon or the window. Each row shows progress, speed and ETA, with pause, resume and remove.
@@ -54,18 +54,24 @@ No account, no tracking, no cloud. The app's server only listens on your own mac
 
 ## Requirements
 
+**Windows:** Windows 10 or 11, 64-bit. Nothing else to install.
+
+**Mac:**
 - macOS 12 Monterey or later, Apple Silicon or Intel
 - [Homebrew](https://brew.sh), then in Terminal: `brew install python yt-dlp ffmpeg`
 - About 200 MB of disk space for the app's Python packages (set up automatically on first launch)
 
 ## Install
 
+**Windows:** extract `cloudsound_999-3.1.0-windows.zip`, open the folder, and double-click `cloudsound_999.exe`. If Windows says it protected your PC, click **More info → Run anyway**.
+
+**Mac:**
 1. Install the Homebrew packages above.
-2. Download `cloudsound_999-3.0.1.dmg`, open it, and drag **cloudsound_999** into **Applications**.
+2. Download `cloudsound_999-3.1.0.dmg`, open it, and drag **cloudsound_999** into **Applications**.
 3. Open the app. macOS blocks it the first time because it isn't notarized by Apple. Open **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**.
 4. The first launch takes about a minute while the app installs its Python packages.
 
-Prefer to check the download? Compare it against `SHA256SUMS.txt` with `shasum -a 256 cloudsound_999-3.0.1.dmg`.
+Prefer to check the download? Compare it against `SHA256SUMS.txt` with `shasum -a 256 cloudsound_999-3.1.0.dmg`.
 
 ## Use responsibly
 
@@ -78,20 +84,18 @@ Only download audio you have the right to: tracks the artist has made downloadab
 - **Kind of project:** Downloadable
 - **Classification:** Tools
 - **Pricing:** No payments, or *Donations* (pay what you want, $0 minimum)
-- **Uploads:** `cloudsound_999-3.0.1.dmg` (tick *macOS*), plus `cloudsound_999-3.0.1-source.zip` (no platform; label it "Source (any OS, run with ./run.sh)")
-- **Genre / tags:** `music`, `dj`, `audio`, `soundcloud`, `downloader`, `music-player`, `mac`, `retro`, `open-source`, `y2k`
+- **Uploads:** `cloudsound_999-3.1.0.dmg` (tick *macOS*), `cloudsound_999-3.1.0-windows.zip` (tick *Windows*), plus `cloudsound_999-3.1.0-source.zip` (no platform; label it "Source (any OS, run with ./run.sh)")
+- **Genre / tags:** `music`, `dj`, `audio`, `soundcloud`, `downloader`, `music-player`, `mac`, `windows`, `retro`, `open-source`, `y2k`
 - **Release status:** Released
 - **Community:** Comments on (useful for bug reports), or link the GitHub issues page
 - **Visibility:** Draft first. Check the page, then switch to Public.
 
-## Whop settings
+## Whop
 
-- **Product type:** Digital product / file download
-- **Price:** Free (or pay-what-you-want if you'd like tips)
-- **Files:** the `.dmg` and `SHA256SUMS.txt`, or point the download to the GitHub release
-- **Banner:** `hero-1920x1080.jpg`; gallery: the `screenshot-*.jpg` files
-- **Description:** the short description, then the long description from above
+See [whop.md](whop.md) for the full step-by-step guide, copy and images (`dist/whop/`).
 
 ## Changelog snippet (for an itch.io devlog / Whop update)
+
+**3.1.0:** cloudsound_999 now runs on Windows 10/11, with everything included.
 
 **3.0.1:** skins renamed (Matrix, LymeWire, Napsterr, JoeKool, POSTAL); the User menu closes after you pick a skin; selected tracks stay readable in every skin; README screenshots; MIT license.
