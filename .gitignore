@@ -1,0 +1,6 @@
+.venv/
+.state/
+__pycache__/
+server.log
+dist/
+.DS_Store
