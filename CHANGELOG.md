@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — pocket sampler (mobile)
+
+- **New: cloudsound_999 for your phone** (`mobile/`). A 4-track looper and sampler that installs to the home screen. Record from the phone mic or a plugged-in mic, or import audio. Loop tracks in sync, chop them automatically by low/mid/high frequency or by hand (cut, drag, scrub), keep every cut in the Sound Bay, and play them on 9 pads in a pull-up drawer. Master record saves the whole mix as a WAV tape.
+- The desktop app serves it at http://127.0.0.1:9990/mobile/, and a GitHub Pages workflow publishes it for phones.
+
 ## 3.1.1
 
 - HotFries is on fire throughout: tall flickering flames rise up the whole window behind the panels, sparks drift to the top, and a flame trim licks along the top of the player and track list. It all burns faster while downloads run (and stays still if your system has Reduce Motion on).
