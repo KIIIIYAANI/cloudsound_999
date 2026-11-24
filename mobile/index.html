@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#ff8a1f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="cs999 sampler">
+<title>cloudsound_999 sampler</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Bungee+Shade&family=VT323&family=Permanent+Marker&family=Archivo+Narrow:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="splash" class="splash">
+  <div class="sunburst" aria-hidden="true"></div>
+  <div class="splash-inner">
+    <div class="logo big"><span class="logo-word">cloudsound</span><span class="logo-num">999</span></div>
+    <div class="marker-tag">pocket sampler</div>
+    <button id="startBtn" class="btn btn-start">TAP TO START</button>
+    <p class="splash-note">4 tracks · 9 pads · chop it up</p>
+  </div>
+</div>
+
+<header class="top">
+  <div class="logo"><span class="logo-word">cloudsound</span><span class="logo-num">999</span></div>
+  <button id="settingsBtn" class="btn btn-icon" aria-label="Settings">⚙</button>
+</header>
+
+<div class="ribbon" aria-hidden="true"><div class="ribbon-track"><span>★ BREAKS ★ BOOM BAP ★ JUNGLE ★ RAGGA ★ 92 BPM ★ 160 BPM ★ DUSTY VINYL ★ CHOP IT ★ FLIP IT ★ </span><span>★ BREAKS ★ BOOM BAP ★ JUNGLE ★ RAGGA ★ 92 BPM ★ 160 BPM ★ DUSTY VINYL ★ CHOP IT ★ FLIP IT ★ </span></div></div>
+
+<section class="deck">
+  <div class="lcd">
+    <div class="lcd-row">
+      <label class="lcd-bpm"><input id="bpm" type="number" inputmode="decimal" min="40" max="240" step="0.1" value="92"><span>BPM</span></label>
+      <div class="lcd-pos" id="pos">1.1</div>
+      <div class="lcd-status" id="status">READY</div>
+    </div>
+    <canvas id="masterScope" class="lcd-scope"></canvas>
+  </div>
+
+  <div class="transport">
+    <button id="playBtn" class="btn btn-play">▶ PLAY</button>
+    <button id="mrecBtn" class="btn btn-mrec"><i class="dot"></i> MASTER</button>
+    <button id="metroBtn" class="btn btn-sm" aria-pressed="false">CLICK</button>
+    <button id="tapBtn" class="btn btn-sm">TAP</button>
+  </div>
+
+  <div class="recrow">
+    <div class="seg" id="srcSeg" role="group" aria-label="Record source">
+      <button data-v="mic" class="on">MIC</button><button data-v="pads">PADS</button>
+    </div>
+    <div class="seg" id="lenSeg" role="group" aria-label="Record length">
+      <button data-v="0" class="on">FREE</button><button data-v="1">1</button><button data-v="2">2</button><button data-v="4">4</button><button data-v="8">8</button>
+    </div>
+    <button id="inputBtn" class="btn btn-sm btn-input" aria-pressed="false"><span class="meter"><i id="meterFill"></i></span>IN</button>
+  </div>
+</section>
+
+<nav class="tabs">
+  <button data-tab="tracks" class="on">TRACKS</button>
+  <button data-tab="bay">SOUND BAY <b id="bayCount">0</b></button>
+</nav>
+
+<main>
+  <section id="tracksView" class="view"></section>
+
+  <section id="bayView" class="view" hidden>
+    <div class="bay-head">
+      <label class="btn btn-sm file-btn">+ IMPORT<input id="bayImport" type="file" accept="audio/*,.wav,.mp3,.m4a,.aif,.aiff,.flac,.ogg" multiple hidden></label>
+      <div class="chips" id="bayChips">
+        <button data-f="all" class="on">ALL</button><button data-f="cut">CUTS</button><button data-f="tape">TAPES</button><button data-f="import">IMPORTS</button>
+      </div>
+    </div>
+    <ul id="bayList" class="bay-list"></ul>
+    <p id="bayEmpty" class="empty">The bay is empty.<br>Chop a track, record a master tape, or import audio, and the cuts land here.</p>
+  </section>
+</main>
+
+<div id="drawer" class="drawer">
+  <div class="drawer-handle" id="drawerHandle">
+    <span class="grip"></span>
+    <span class="drawer-title">PADS</span>
+    <canvas id="padScope" class="pad-scope"></canvas>
+    <button id="padEditBtn" class="btn btn-xs" aria-pressed="false">EDIT</button>
+  </div>
+  <div class="pads" id="pads"></div>
+</div>
+
+<!-- Chop editor -->
+<div id="editor" class="sheet full" hidden>
+  <div class="sheet-head">
+    <button class="btn btn-sm" id="edClose">◀ BACK</button>
+    <div class="ed-title"><b id="edName">TRACK</b><span id="edMeta"></span></div>
+  </div>
+  <div class="ed-wave-wrap">
+    <canvas id="edWave" class="ed-wave"></canvas>
+    <div class="band-legend"><i class="lo"></i>LOW <i class="mi"></i>MID <i class="hi"></i>HIGH</div>
+  </div>
+  <div class="ed-row">
+    <div class="seg" id="edMode"><button data-v="play" class="on">SELECT</button><button data-v="cut">CUT</button><button data-v="scrub">SCRUB</button></div>
+    <button class="btn btn-xs" id="edZoomOut">−</button><button class="btn btn-xs" id="edZoomIn">+</button><button class="btn btn-xs" id="edFit">FIT</button>
+  </div>
+  <p class="ed-hint" id="edHint">Tap a slice to hear it. Pinch to zoom.</p>
+
+  <div class="panel">
+    <div class="panel-label">AUTO CHOP</div>
+    <div class="seg wide" id="edBand"><button data-v="full" class="on">ALL HZ</button><button data-v="low">LOW</button><button data-v="mid">MID</button><button data-v="high">HIGH</button><button data-v="grid">GRID</button></div>
+    <div class="ed-row">
+      <label class="slider"><span id="edSensLabel">SENS</span><input id="edSens" type="range" min="0" max="100" value="55"></label>
+      <button class="btn btn-sm btn-go" id="edChop">CHOP</button>
+      <button class="btn btn-sm" id="edClear">CLEAR</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">SELECTED SLICE <span id="edSelInfo">—</span></div>
+    <div class="ed-row wrap">
+      <button class="btn btn-sm" id="edPlaySel">▶ PLAY</button>
+      <button class="btn btn-sm" id="edSelBay">→ BAY</button>
+      <button class="btn btn-sm" id="edSelPad">→ PAD</button>
+      <button class="btn btn-sm" id="edCrop">CROP</button>
+      <button class="btn btn-sm" id="edDelMark">DEL MARK</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">WHOLE SAMPLE</div>
+    <div class="ed-row wrap">
+      <button class="btn btn-sm" id="edAllBay">ALL → BAY</button>
+      <button class="btn btn-sm btn-go" id="edAllPads">ALL → PADS 1-9</button>
+      <button class="btn btn-sm" id="edSplit">SPLIT HZ → BAY</button>
+      <button class="btn btn-sm" id="edRev">REVERSE</button>
+      <button class="btn btn-sm" id="edNorm">NORMALIZE</button>
+      <button class="btn btn-sm" id="edBpm">BPM FROM LOOP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pad settings -->
+<div id="padSheet" class="sheet" hidden>
+  <div class="sheet-head"><b id="psTitle">PAD 1</b><button class="btn btn-sm" id="psClose">DONE</button></div>
+  <canvas id="psWave" class="ps-wave"></canvas>
+  <div class="ps-name" id="psName">empty</div>
+  <div class="ed-row wrap">
+    <button class="btn btn-sm" id="psPick">LOAD FROM BAY</button>
+    <button class="btn btn-sm" id="psEdit">CHOP</button>
+    <button class="btn btn-sm" id="psClear">CLEAR</button>
+  </div>
+  <label class="slider"><span>PITCH <b id="psPitchV">0</b></span><input id="psPitch" type="range" min="-24" max="24" value="0"></label>
+  <label class="slider"><span>GAIN <b id="psGainV">100</b></span><input id="psGain" type="range" min="0" max="150" value="100"></label>
+  <div class="ed-row">
+    <div class="seg" id="psMode"><button data-v="one" class="on">ONE SHOT</button><button data-v="gate">GATE</button><button data-v="loop">LOOP</button></div>
+    <button class="btn btn-xs" id="psCut" aria-pressed="true">CUT ON</button>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="settings" class="sheet" hidden>
+  <div class="sheet-head"><b>SETTINGS</b><button class="btn btn-sm" id="setClose">DONE</button></div>
+  <label class="field"><span>INPUT (built-in or plugged-in mic)</span><select id="setDevice"><option value="">Default input</option></select></label>
+  <button class="btn btn-sm" id="setRescan">RESCAN INPUTS</button>
+  <p class="note">Plug in an external mic or interface (headphone/USB-C/Lightning), then tap <b>Rescan</b>. On iPhone, the most recently connected mic is used automatically.</p>
+  <label class="slider"><span>INPUT GAIN <b id="setGainV">100</b></span><input id="setGain" type="range" min="0" max="400" value="100"></label>
+  <label class="slider"><span>REC LATENCY FIX (ms) <b id="setLatV">0</b></span><input id="setLat" type="range" min="0" max="400" value="0"></label>
+  <label class="toggle"><input type="checkbox" id="setMonitor"> Monitor input through speakers (use headphones)</label>
+  <label class="toggle"><input type="checkbox" id="setCountIn" checked> 1-bar count-in when recording bars</label>
+  <div class="ed-row wrap">
+    <button class="btn btn-sm" id="setInstall" hidden>INSTALL APP</button>
+    <button class="btn btn-sm btn-danger" id="setWipe">ERASE EVERYTHING</button>
+  </div>
+  <p class="note small">Everything stays on this phone (saved in the browser). <span id="setStorage"></span></p>
+</div>
+
+<!-- Generic action sheet -->
+<div id="actions" class="sheet" hidden>
+  <div class="sheet-head"><b id="actTitle"></b><button class="btn btn-sm" id="actClose">CLOSE</button></div>
+  <div id="actList" class="act-list"></div>
+</div>
+
+<div id="scrim" class="scrim" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<input id="trackImport" type="file" accept="audio/*,.wav,.mp3,.m4a,.aif,.aiff,.flac,.ogg" hidden>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

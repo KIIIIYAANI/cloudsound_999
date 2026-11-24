@@ -25,7 +25,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -988,7 +988,7 @@ async def events():
 async def no_stale_ui(request, call_next):
     """Always revalidate the UI files so an updated app never runs an old cached app.js/css."""
     resp = await call_next(request)
-    if request.url.path == "/" or request.url.path.startswith("/static/"):
+    if request.url.path == "/" or request.url.path.startswith(("/static/", "/mobile")):
         resp.headers["Cache-Control"] = "no-cache"
     return resp
 
@@ -998,4 +998,11 @@ def index():
     return FileResponse(APP_DIR / "static" / "index.html")
 
 
+# The phone sampler (a standalone web app; see mobile/README.md).
+if (APP_DIR / "mobile").is_dir():
+    @app.get("/mobile")
+    def mobile_redirect():
+        return RedirectResponse("/mobile/")
+
+    app.mount("/mobile", StaticFiles(directory=APP_DIR / "mobile", html=True), name="mobile")
 app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")

@@ -55,7 +55,7 @@ jobs:
       - name: Build app (PyInstaller)
         run: |
           pyinstaller --noconfirm --clean --windowed --name cloudsound_999 --icon win/icon.ico \
-            --paths . --add-data "static;static" --add-data "VERSION;." \
+            --paths . --add-data "static;static" --add-data "mobile;mobile" --add-data "VERSION;." \
             --hidden-import server --hidden-import analyze --collect-submodules uvicorn \
             win/launcher.py
           cp -r tools dist/cloudsound_999/tools

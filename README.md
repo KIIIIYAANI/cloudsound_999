@@ -8,6 +8,10 @@ Everything runs on your machine. The server listens only on `127.0.0.1`.
 
 ![The Organize tab: title, artist, BPM and Camelot key, sortable](docs/screenshots/organize.jpg)
 
+## Pocket sampler (phone)
+
+`mobile/` is a separate phone app: a 4-track looper with a frequency-coloured chop editor, a Sound Bay of cuts, 9 pads and master recording. It runs in the browser and installs to the home screen. See [mobile/README.md](mobile/README.md).
+
 ## Install (macOS)
 
 1. Install [Homebrew](https://brew.sh), then run `brew install python yt-dlp ffmpeg`.
